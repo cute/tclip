@@ -44,11 +44,26 @@ if test "$PHP_TCLIP" != "no"; then
                 file_name=${i/$dir_name/}
                 file_name=${file_name/\/lib/}
                 file_name=${file_name/.so/}
-		PHP_ADD_LIBRARY_WITH_PATH($file_name,$dir_name,TCLIP_SHARED_LIBADD)
-	else
-		AC_MSG_ERROR([no result from pkg-config opencv --libs --cflags opencv])
+                PHP_ADD_LIBRARY_WITH_PATH($file_name,$dir_name,TCLIP_SHARED_LIBADD)
+        elif test ${i:${#i}-2} = ".a" ;then
+                dir_name=`dirname $i`
+                file_name=${i/$dir_name/}
+                file_name=${file_name/\/lib/}
+                file_name=${file_name/.a/}
+              PHP_ADD_LIBRARY_WITH_PATH($file_name,$dir_name,TCLIP_SHARED_LIBADD)
+        elif test ${i:${#i}-6} = ".dylib" ;then
+                dir_name=`dirname $i`
+                file_name=${i/$dir_name/}
+                file_name=${file_name/\/lib/}
+                file_name=${file_name/.dylib/}
+              PHP_ADD_LIBRARY_WITH_PATH($file_name,$dir_name,TCLIP_SHARED_LIBADD)
+        elif test ${i:0:2} = "-l" ;then
+          echo $i
+        else
+          AC_MSG_ERROR([no result from pkg-config opencv --libs --cflags opencv])
         fi
   done
+
 
   PHP_ADD_LIBRARY(stdc++,"",TCLIP_SHARED_LIBADD)
   PHP_SUBST(TCLIP_SHARED_LIBADD)
