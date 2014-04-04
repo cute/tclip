@@ -1,4 +1,4 @@
-#include "cv.h"  
+#include "cv.h"
 #include "opencv2/core/core.hpp"
 #include "opencv2/objdetect/objdetect.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -27,12 +27,12 @@ int detectFace( Mat img , string face_cascade_name){
     Mat img_gray;
 	int face_size;
 	int Y;
-	
+
 	start = clock();
 
-	if( !face_cascade.load( face_cascade_name ) ){ 
+	if( !face_cascade.load( face_cascade_name ) ){
         printf("[error] can not load classifier file！[use -H for help]\n");
-        return -1; 
+        return -1;
     }
 
 	clt = clock() - start;
@@ -42,9 +42,9 @@ int detectFace( Mat img , string face_cascade_name){
     equalizeHist( img_gray, img_gray );
     face_cascade.detectMultiScale( img_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30) );
 	face_size = faces.size();
-	
+
 	show_debug("detectFace:face size is ", face_size);
-	
+
 	if ( face_size > 0)
 	{
 		show_debug("detectFace:faces[0].y is ", faces[0].y);
@@ -66,20 +66,20 @@ int detectFace( Mat img , string face_cascade_name){
 }
 
 int detectCharacter( Mat img ){
-	int start_x = 0; //特征点X坐标开始位置 
+	int start_x = 0; //特征点X坐标开始位置
 	int end_x = 0; //特征点X坐标结束位置
 	int section_index = 0; //Y坐标段数字索引
 	map<int,int> section_num; //每个Y坐标段中特征点的数量
 	int total = 0; //总共特征点数量
 	int avg = 0; //每个Y坐标段的平均特征点数量
-	int con_num = 4; //需要连续的阀值 
+	int con_num = 4; //需要连续的阀值
 	int flag = 0;
 	int counter = 0;
 	int Y = 0;
 
 	vector<KeyPoint> keypoints;
 
-	cv::initModule_nonfree();//使用SIFT/SURF create之前，必须先initModule_<modulename>(); 
+	cv::initModule_nonfree();//使用SIFT/SURF create之前，必须先initModule_<modulename>();
 
 	Ptr<FeatureDetector> detector = FeatureDetector::create( "SURF" );
 
@@ -89,10 +89,10 @@ int detectCharacter( Mat img ){
 		return -1;
 	}
 
-	//start_x = img.size().width / 5;
-	//end_x = start_x * 4;
-	start_x = 0;
-	end_x = img.size().width;
+	start_x = img.size().width / 5;
+	end_x = start_x * 4;
+	//start_x = 0;
+	//end_x = img.size().width;
 
 	detector->detect( img, keypoints );
 	for (vector<KeyPoint>::iterator i = keypoints.begin(); i != keypoints.end(); i++)
@@ -118,7 +118,7 @@ int detectCharacter( Mat img ){
 	show_debug("detectCharacter:avg is ", avg);
 
 	//检测特征点分布是否均匀
-	int slice_total = 10 ; 
+	int slice_total = 14 ;
 	int slice_num = section_num.size() / slice_total;
 	int slice_counter = 0;
 	for (int m = 0; m < slice_total; m++)
@@ -165,6 +165,7 @@ int main(int argc, char** argv)
 {
 	Mat image;
 	Mat dest_image;
+	Mat antialiased;
 	Size tmp_size;
 	int dest_width = 300;//用户输入
 	int dest_height = 180;//用户输入
@@ -175,13 +176,14 @@ int main(int argc, char** argv)
 	int clip_bottom = 0;
 	int clip_left = 0;
 	int clip_right = 0;
+	int dest_quality = 95;
 	string config_path = "/usr/local/share/OpenCV/haarcascades/haarcascade_frontalface_alt.xml";
 	string source_path = "";
 	string dest_path = "";
 	int result = 0;
 	int param;
 
-	while( (param = getopt(argc, argv, "Hms:d:c:w:h:")) != -1 )
+	while( (param = getopt(argc, argv, "Hms:d:c:w:h:q:")) != -1 )
 	{
 		if ( param == 's' ){
 			source_path = optarg;
@@ -195,6 +197,13 @@ int main(int argc, char** argv)
 			sscanf (optarg, "%d", &dest_width);
 		}else if ( param == 'h' ) {
 			sscanf (optarg, "%d", &dest_height);
+		}else if ( param == 'q' ) {
+			sscanf (optarg, "%d", &dest_quality);
+			if(dest_quality > 100){
+				dest_quality = 100;
+			}else if(dest_quality <=0){
+				dest_quality = 95;
+			}
 		}else if ( param == 'H')
 		{
 			cout << "Usage: exclip [options] [-s] <source_file> [--] [args...]" << endl;
@@ -202,6 +211,7 @@ int main(int argc, char** argv)
 			cout << "-d<path>	the path of destination file" << endl;
 			cout << "-w<int>		the width of destination file. default value is 300" << endl;
 			cout << "-h<int>		the height of destination file. default value is 180" << endl;
+			cout << "-q<int>		the quality of destination file. default value is 95" << endl;
 			cout << "-c<path>	the path of config file." << endl;
 			cout << "		default path is /usr/local/share/OpenCV/haarcascades/haarcascade_frontalface_alt.xml" << endl;
 			cout << "-m		open debug model" << endl;
@@ -219,7 +229,7 @@ int main(int argc, char** argv)
 		cerr << "you should specify the path of destination file.[use -H for help]" << endl;
 		return 1;
 	}
-	
+
 	show_debug("start to read image ", "");
 	start = clock();
 
@@ -245,22 +255,25 @@ int main(int argc, char** argv)
 		ratio = (float)dest_width / image.size().width;
 		show_debug("ratio is ", ratio);
 		tmp_size = Size((int)(image.size().width * ratio), (int)(image.size().height * ratio));
-		dest_image = Mat(tmp_size, CV_32S);
-		resize(image, dest_image, tmp_size);
+		dest_image = Mat(tmp_size, image.depth(), image.channels());
+		resize(image, dest_image, tmp_size, INTER_CUBIC);
 		clip_top = 0;
 		clip_bottom = dest_height - dest_image.size().height;
 		clip_left = 0;
 		clip_right = 0;
 		dest_image.adjustROI(clip_top, clip_bottom, clip_left, clip_right); //Mat& Mat::adjustROI(int dtop, int dbottom, int dleft, int dright)
-		imwrite(dest_path, dest_image);
+		vector<int> params;
+		params.push_back(CV_IMWRITE_JPEG_QUALITY);
+		params.push_back(dest_quality);
+		imwrite(dest_path, dest_image, params);
 		return -1;
 	}
 
 	ratio = (float)300.0 / image.size().width;
 	show_debug("ratio is ", ratio);
 	tmp_size = Size((int)(image.size().width * ratio), (int)(image.size().height * ratio));
-	dest_image = Mat(tmp_size, CV_32S);
-	resize(image, dest_image, tmp_size);
+	dest_image = Mat(tmp_size, image.depth(), image.channels());
+	resize(image, dest_image, tmp_size, INTER_CUBIC);
 
 	show_debug("start to detectFace ", "");
 	start = clock();
@@ -288,7 +301,7 @@ int main(int argc, char** argv)
 	result = result == -1 ? -1 : (int)((float)result / ratio);
 
 	show_debug("the origin result is ", result);
-	
+
 	ratio_width = (float)dest_width / image.size().width;
 	ratio_height = (float)dest_height / image.size().height;
 
@@ -308,8 +321,9 @@ int main(int argc, char** argv)
 
 	show_debug("ratio is ", ratio);
 	tmp_size = Size((int)(image.size().width * ratio), (int)(image.size().height * ratio));
-	dest_image = Mat(tmp_size, CV_32S);
-	resize(image, dest_image, tmp_size);
+	dest_image = Mat(tmp_size, image.depth(), image.channels());
+	GaussianBlur(image, antialiased, Size(5, 5), 0.8);
+	resize(antialiased, dest_image, tmp_size, INTER_CUBIC);
 
 	show_debug("width of resize image ", dest_image.size().width);
 	show_debug("height of resize image ", dest_image.size().height);
@@ -341,7 +355,10 @@ int main(int argc, char** argv)
 	dest_image.adjustROI(clip_top, clip_bottom, clip_left, clip_right); //Mat& Mat::adjustROI(int dtop, int dbottom, int dleft, int dright)
 	try
 	{
-		imwrite(dest_path, dest_image);
+		vector<int> params;
+		params.push_back(CV_IMWRITE_JPEG_QUALITY);
+		params.push_back(dest_quality);
+		imwrite(dest_path, dest_image, params);
 	}
 	catch (exception &e)
 	{

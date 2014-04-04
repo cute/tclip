@@ -56,11 +56,11 @@ if test "$PHP_TCLIP" != "no"; then
                 file_name=${i/$dir_name/}
                 file_name=${file_name/\/lib/}
                 file_name=${file_name/.dylib/}
-              PHP_ADD_LIBRARY_WITH_PATH($file_name,$dir_name,TCLIP_SHARED_LIBADD)
+                PHP_ADD_LIBRARY_WITH_PATH($file_name,$dir_name,TCLIP_SHARED_LIBADD)
         elif test ${i:0:2} = "-l" ;then
-          echo $i
+                echo $i
         else
-          AC_MSG_ERROR([no result from pkg-config opencv --libs --cflags opencv])
+                AC_MSG_ERROR([no result from pkg-config opencv --libs --cflags opencv])
         fi
   done
 

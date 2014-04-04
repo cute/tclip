@@ -27,7 +27,7 @@ extern "C"{
 	#include "ext/standard/info.h"
 }
 
-#include "cv.h"  
+#include "cv.h"
 #include "opencv2/core/core.hpp"
 #include "opencv2/objdetect/objdetect.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -117,11 +117,11 @@ PHP_MINIT_FUNCTION(tclip)
 {
 	/* If you have INI entries, uncomment these lines */
 	REGISTER_INI_ENTRIES();
-	
+
 	string face_config_path = (TCLIP_G(face_config_path) == "" || TCLIP_G(face_config_path) == NULL)? "/usr/local/share/OpenCV/haarcascades/haarcascade_frontalface_alt.xml" :TCLIP_G(face_config_path);
-	if( !face_cascade.load( face_config_path ) ){ 
+	if( !face_cascade.load( face_config_path ) ){
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "can not load classifier file！%s", face_config_path.c_str());
-        return FAILURE; 
+        return FAILURE;
     }
 	TCLIP_G(face_cascade) = &face_cascade;
 	return SUCCESS;
@@ -185,7 +185,7 @@ int detectFace( Mat &img TSRMLS_DC){
 	((CascadeClassifier *)TCLIP_G(face_cascade))->detectMultiScale( img_gray, faces, 1.1, 2, 0|CV_HAAR_SCALE_IMAGE, Size(30, 30) );
 
 	face_size = faces.size();
-		
+
 	if ( face_size > 0)
 	{
 		Y = faces[face_size -1].y - faces[face_size -1].height / 2;
@@ -201,20 +201,20 @@ int detectFace( Mat &img TSRMLS_DC){
 }
 
 int detectCharacter( Mat &img TSRMLS_DC){
-	int start_x = 0; //特征点X坐标开始位置 
+	int start_x = 0; //特征点X坐标开始位置
 	int end_x = 0; //特征点X坐标结束位置
 	int section_index = 0; //Y坐标段数字索引
 	map<int,int> section_num; //每个Y坐标段中特征点的数量
 	int total = 0; //总共特征点数量
 	int avg = 0; //每个Y坐标段的平均特征点数量
-	int con_num = 4; //需要连续的阀值 
+	int con_num = 4; //需要连续的阀值
 	int flag = 0;
 	int counter = 0;
 	int Y = 0;
 
 	vector<KeyPoint> keypoints;
 
-	cv::initModule_nonfree();//使用SIFT/SURF create之前，必须先initModule_<modulename>(); 
+	cv::initModule_nonfree();//使用SIFT/SURF create之前，必须先initModule_<modulename>();
 
 	Ptr<FeatureDetector> detector = FeatureDetector::create( "SURF" );
 
@@ -245,7 +245,7 @@ int detectCharacter( Mat &img TSRMLS_DC){
 	avg = total / section_num.size();
 
 	//检测特征点分布是否均匀
-	int slice_total = 10 ; 
+	int slice_total = 10 ;
 	int slice_num = section_num.size() / slice_total;
 	int slice_counter = 0;
 	for (int m = 0; m < slice_total; m++)
@@ -303,6 +303,7 @@ PHP_FUNCTION(tclip)
 	int dest_height, dest_width;
 	int result = 0;
 	Mat image;
+	Mat antialiased;
 	Mat dest_image;
 	Size tmp_size;
 	float ratio_width = 0;
@@ -312,9 +313,16 @@ PHP_FUNCTION(tclip)
 	int clip_bottom = 0;
 	int clip_left = 0;
 	int clip_right = 0;
+	long dest_quality = 95;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssll", &source_path, &source_len, &dest_path, &dest_len, &dest_width, &dest_height) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssll|l", &source_path, &source_len, &dest_path, &dest_len, &dest_width, &dest_height, &dest_quality) == FAILURE) {
 		return;
+	}
+
+	if(dest_quality > 100){
+		dest_quality = 100;
+	}else if(dest_quality <= 0){
+		dest_quality = 95;
 	}
 
 	image = imread( source_path );
@@ -328,13 +336,21 @@ PHP_FUNCTION(tclip)
 		ratio = (float)dest_width / image.size().width;
 		tmp_size = Size((int)(image.size().width * ratio), (int)(image.size().height * ratio));
 		dest_image = Mat(tmp_size, CV_32S);
-		resize(image, dest_image, tmp_size);
+
+		GaussianBlur(image, antialiased, Size(5, 5), 0.8);
+		resize(antialiased, dest_image, tmp_size, INTER_CUBIC);
+
 		clip_top = 0;
 		clip_bottom = dest_height - dest_image.size().height;
 		clip_left = 0;
 		clip_right = 0;
 		dest_image.adjustROI(clip_top, clip_bottom, clip_left, clip_right); //Mat& Mat::adjustROI(int dtop, int dbottom, int dleft, int dright)
-		imwrite(dest_path, dest_image);
+
+		vector<int> params;
+		params.push_back(CV_IMWRITE_JPEG_QUALITY);
+		params.push_back((int)dest_quality);
+
+		imwrite(dest_path, dest_image, params);
 		RETURN_TRUE;
 	}
 
@@ -347,7 +363,7 @@ PHP_FUNCTION(tclip)
 
 	if (result == -1)
 	{
-    	result = detectCharacter( dest_image TSRMLS_CC);
+		result = detectCharacter( dest_image TSRMLS_CC);
 	}
 
 	result = result == -1 ? -1 : (int)((float)result / ratio);
@@ -367,7 +383,7 @@ PHP_FUNCTION(tclip)
 
 	tmp_size = Size((int)(image.size().width * ratio), (int)(image.size().height * ratio));
 	dest_image = Mat(tmp_size, CV_32S);
-	resize(image, dest_image, tmp_size);
+	resize(image, dest_image, tmp_size, INTER_CUBIC);
 
 	if (ratio_width > ratio_height) //原图片 宽度小于高度
 	{
@@ -389,24 +405,29 @@ PHP_FUNCTION(tclip)
 		clip_right = clip_left;
 	}
 
+	GaussianBlur(image, antialiased, Size(5, 5), 0.8);
+	resize(antialiased, dest_image, tmp_size, INTER_CUBIC);
+
 	dest_image.adjustROI(clip_top, clip_bottom, clip_left, clip_right); //Mat& Mat::adjustROI(int dtop, int dbottom, int dleft, int dright)
 	try
 	{
-		imwrite(dest_path, dest_image);
-
+		vector<int> params;
+		params.push_back(CV_IMWRITE_JPEG_QUALITY);
+		params.push_back((int)dest_quality);
+		imwrite(dest_path, dest_image, params);
 	}
 	catch (exception &e)
 	{
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, e.what());
 		RETURN_FALSE;
 	}
-	
+
 	RETURN_TRUE;
 }
 /* }}} */
-/* The previous line is meant for vim and emacs, so it can correctly fold and 
-   unfold functions in source code. See the corresponding marks just before 
-   function definition, where the functions purpose is also documented. Please 
+/* The previous line is meant for vim and emacs, so it can correctly fold and
+   unfold functions in source code. See the corresponding marks just before
+   function definition, where the functions purpose is also documented. Please
    follow this convention for the convenience of others editing your code.
 */
 
