@@ -314,6 +314,8 @@ PHP_FUNCTION(tclip)
 	int clip_left = 0;
 	int clip_right = 0;
 	long dest_quality = 95;
+	vector<int> params;
+	char *dot;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssll|l", &source_path, &source_len, &dest_path, &dest_len, &dest_width, &dest_height, &dest_quality) == FAILURE) {
 		return;
@@ -335,7 +337,7 @@ PHP_FUNCTION(tclip)
 	{
 		ratio = (float)dest_width / image.size().width;
 		tmp_size = Size((int)(image.size().width * ratio), (int)(image.size().height * ratio));
-		dest_image = Mat(tmp_size, CV_32S);
+		dest_image =  Mat(tmp_size, image.depth(), image.channels());
 
 		GaussianBlur(image, antialiased, Size(5, 5), 0.8);
 		resize(antialiased, dest_image, tmp_size, INTER_CUBIC);
@@ -346,9 +348,20 @@ PHP_FUNCTION(tclip)
 		clip_right = 0;
 		dest_image.adjustROI(clip_top, clip_bottom, clip_left, clip_right); //Mat& Mat::adjustROI(int dtop, int dbottom, int dleft, int dright)
 
-		vector<int> params;
-		params.push_back(CV_IMWRITE_JPEG_QUALITY);
-		params.push_back((int)dest_quality);
+		dot = strrchr(dest_path, '.');
+
+		if (dot && strcasecmp(dot, ".png") == 0){
+			params.push_back(CV_IMWRITE_PNG_COMPRESSION);
+			if(dest_quality > 9){
+				dest_quality = 9;
+			}else if(dest_quality <= 0){
+				dest_quality = 0;
+			}
+			params.push_back((int)dest_quality);
+		}else{
+			params.push_back(CV_IMWRITE_JPEG_QUALITY);
+			params.push_back((int)dest_quality);
+		}
 
 		imwrite(dest_path, dest_image, params);
 		RETURN_TRUE;
@@ -356,7 +369,7 @@ PHP_FUNCTION(tclip)
 
 	ratio = (float)300.0 / image.size().width;
 	tmp_size = Size((int)(image.size().width * ratio), (int)(image.size().height * ratio));
-	dest_image = Mat(tmp_size, CV_32S);
+	dest_image =  Mat(tmp_size, image.depth(), image.channels());
 	resize(image, dest_image, tmp_size);
 
 	result = detectFace( dest_image TSRMLS_CC);
@@ -382,8 +395,9 @@ PHP_FUNCTION(tclip)
 	result = result == -1 ? -1 : (int)((float)result * ratio);
 
 	tmp_size = Size((int)(image.size().width * ratio), (int)(image.size().height * ratio));
-	dest_image = Mat(tmp_size, CV_32S);
-	resize(image, dest_image, tmp_size, INTER_CUBIC);
+	dest_image =  Mat(tmp_size, image.depth(), image.channels());
+	GaussianBlur(image, antialiased, Size(5, 5), 0.8);
+	resize(antialiased, dest_image, tmp_size, INTER_CUBIC);
 
 	if (ratio_width > ratio_height) //原图片 宽度小于高度
 	{
@@ -405,15 +419,25 @@ PHP_FUNCTION(tclip)
 		clip_right = clip_left;
 	}
 
-	GaussianBlur(image, antialiased, Size(5, 5), 0.8);
-	resize(antialiased, dest_image, tmp_size, INTER_CUBIC);
-
 	dest_image.adjustROI(clip_top, clip_bottom, clip_left, clip_right); //Mat& Mat::adjustROI(int dtop, int dbottom, int dleft, int dright)
+
 	try
 	{
-		vector<int> params;
-		params.push_back(CV_IMWRITE_JPEG_QUALITY);
-		params.push_back((int)dest_quality);
+		dot = strrchr(dest_path, '.');
+
+		if (dot && strcasecmp(dot, ".png") == 0){
+			params.push_back(CV_IMWRITE_PNG_COMPRESSION);
+			if(dest_quality > 9){
+				dest_quality = 9;
+			}else if(dest_quality <= 0){
+				dest_quality = 0;
+			}
+			params.push_back((int)dest_quality);
+		}else{
+			params.push_back(CV_IMWRITE_JPEG_QUALITY);
+			params.push_back((int)dest_quality);
+		}
+
 		imwrite(dest_path, dest_image, params);
 	}
 	catch (exception &e)

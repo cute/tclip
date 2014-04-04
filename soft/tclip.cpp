@@ -183,6 +183,9 @@ int main(int argc, char** argv)
 	int result = 0;
 	int param;
 
+	char *dot;
+	vector<int> params;
+
 	while( (param = getopt(argc, argv, "Hms:d:c:w:h:q:")) != -1 )
 	{
 		if ( param == 's' ){
@@ -256,15 +259,30 @@ int main(int argc, char** argv)
 		show_debug("ratio is ", ratio);
 		tmp_size = Size((int)(image.size().width * ratio), (int)(image.size().height * ratio));
 		dest_image = Mat(tmp_size, image.depth(), image.channels());
-		resize(image, dest_image, tmp_size, INTER_CUBIC);
+
+		GaussianBlur(image, antialiased, Size(5, 5), 0.8);
+		resize(antialiased, dest_image, tmp_size, INTER_CUBIC);
+
 		clip_top = 0;
 		clip_bottom = dest_height - dest_image.size().height;
 		clip_left = 0;
 		clip_right = 0;
 		dest_image.adjustROI(clip_top, clip_bottom, clip_left, clip_right); //Mat& Mat::adjustROI(int dtop, int dbottom, int dleft, int dright)
-		vector<int> params;
-		params.push_back(CV_IMWRITE_JPEG_QUALITY);
-		params.push_back(dest_quality);
+
+		dot = strrchr(dest_path.c_str(), '.');
+		if (dot && strcasecmp(dot, ".png") == 0){
+			params.push_back(CV_IMWRITE_PNG_COMPRESSION);
+			if(dest_quality > 9){
+				dest_quality = 9;
+			}else if(dest_quality <= 0){
+				dest_quality = 0;
+			}
+			params.push_back(dest_quality);
+		}else{
+			params.push_back(CV_IMWRITE_JPEG_QUALITY);
+			params.push_back(dest_quality);
+		}
+
 		imwrite(dest_path, dest_image, params);
 		return -1;
 	}
@@ -353,11 +371,24 @@ int main(int argc, char** argv)
 	show_debug("clip_left ", clip_left);
 	show_debug("clip_right ", clip_right);
 	dest_image.adjustROI(clip_top, clip_bottom, clip_left, clip_right); //Mat& Mat::adjustROI(int dtop, int dbottom, int dleft, int dright)
+
 	try
 	{
-		vector<int> params;
-		params.push_back(CV_IMWRITE_JPEG_QUALITY);
-		params.push_back(dest_quality);
+		dot = strrchr(dest_path.c_str(), '.');
+
+		if (dot && strcasecmp(dot, ".png") == 0){
+			params.push_back(CV_IMWRITE_PNG_COMPRESSION);
+			if(dest_quality > 9){
+				dest_quality = 9;
+			}else if(dest_quality <= 0){
+				dest_quality = 0;
+			}
+			params.push_back(dest_quality);
+		}else{
+			params.push_back(CV_IMWRITE_JPEG_QUALITY);
+			params.push_back(dest_quality);
+		}
+
 		imwrite(dest_path, dest_image, params);
 	}
 	catch (exception &e)
